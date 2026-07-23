@@ -18,7 +18,7 @@
 - **Agent:** PowerShell (Windows). Future: cross-platform.
 - **`.env.opencode`:** per-project, always gitignored. Holds `OPENCODE_TUNNEL_TOKEN`, `OPENCODE_TUNNEL_URL`, `OPENCODE_PORT`, `OPENCODE_SESSION_PASSWORD` (optional).
 - **No secrets in tracked files.** Tokens go in `.env.opencode` (gitignored) or Wrangler secrets.
-- **Compatibility date:** `2024-09-23` or later (for DO + Hibernation API).
+- **Compatibility date:** pinned to today (`2026-07-23`) at scaffold; `2024-09-23` is the minimum floor for DO + Hibernation API.
 - **DO WebSocket:** must use Hibernation API (`acceptWebSocket`, not `ws.accept()`).
 
 ---
@@ -38,7 +38,7 @@ OpenCode-Remote-Control/
 │   │   ├── style.css
 │   │   └── app.js
 │   ├── schema.sql            — D1 table definitions
-│   ├── wrangler.toml         — bindings (DO, D1, assets)
+│   ├── wrangler.jsonc         — bindings (DO, D1, assets)
 │   ├── package.json          — dev deps (wrangler, typescript)
 │   └── tsconfig.json
 ├── agent/
@@ -55,11 +55,11 @@ OpenCode-Remote-Control/
 
 **Files:**
 - Create: `OpenCode-Remote-Control/` (repo root)
-- Create: `worker/package.json`, `worker/tsconfig.json`, `worker/wrangler.toml`
+- Create: `worker/package.json`, `worker/tsconfig.json`, `worker/wrangler.jsonc`
 - Create: `.gitignore`
 
 **Interfaces:**
-- Produces: a deployable Worker skeleton with `wrangler.toml` bindings for DO + D1 + assets.
+- Produces: a deployable Worker skeleton with `wrangler.jsonc` bindings for DO + D1 + assets.
 
 - [ ] **Step 1: Create the GitHub repo**
 
@@ -67,6 +67,11 @@ OpenCode-Remote-Control/
 # Via GitHub MCP or gh CLI — create BeneVerk/OpenCode-Remote-Control (public)
 gh repo create BeneVerk/OpenCode-Remote-Control --public --description "Claude-style remote control for opencode — one domain, many machines, all Cloudflare"
 ```
+> **Note (verified 2026-07-23):** the `BeneVerk` GitHub org exists (id `297254514`) but currently has **0 repos**; `schatt93` is the developer. The local clone currently pushes to the temporary scratch remote `schatt-qwr/OpenCode-Remote-Control`. After creating the org repo, repoint the local remote and push the existing history:
+> ```bash
+> git remote set-url origin https://github.com/BeneVerk/OpenCode-Remote-Control.git
+> git push -u origin main
+> ```
 
 - [ ] **Step 2: Clone + scaffold locally**
 
@@ -90,9 +95,9 @@ mkdir -p worker/src worker/public agent docs
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "wrangler": "^3.80.0",
-    "typescript": "^5.5.0",
-    "@cloudflare/workers-types": "^4.20240923.0"
+    "wrangler": "^4.113.0",
+    "typescript": "^7.0.0",
+    "@cloudflare/workers-types": "^5.0.0"
   }
 }
 ```
@@ -115,29 +120,27 @@ mkdir -p worker/src worker/public agent docs
 }
 ```
 
-- [ ] **Step 5: Create `worker/wrangler.toml`**
+- [ ] **Step 5: Create `worker/wrangler.jsonc`**
 
-```toml
-name = "opencode-remote-control"
-main = "src/index.ts"
-compatibility_date = "2024-09-23"
-
-[assets]
-directory = "./public"
-binding = "ASSETS"
-
-[[durable_objects.bindings]]
-name = "SESSION_RELAY"
-class_name = "SessionRelay"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "opencode-remote"
-database_id = "<D1_DATABASE_ID>"
-
-[[migrations]]
-tag = "v1"
-new_classes = ["SessionRelay"]
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "opencode-remote-control",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-23",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [{ "name": "SESSION_RELAY", "class_name": "SessionRelay" }]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "opencode-remote",
+      "database_id": "<D1_DATABASE_ID>"
+    }
+  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SessionRelay"] }]
+}
 ```
 
 - [ ] **Step 6: Create `.gitignore`**
@@ -154,15 +157,17 @@ node_modules/
 
 Create `worker/src/index.ts`:
 ```typescript
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    return new Response("OpenCode Remote Control — scaffold", { status: 200 });
-  },
-};
+import { DurableObject } from "cloudflare:workers";
 
 export class SessionRelay extends DurableObject {
   // Implemented in Task 3
 }
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return new Response("OpenCode Remote Control — scaffold", { status: 200 });
+  },
+} satisfies ExportedHandler<Env>;
 
 export interface Env {
   ASSETS: Fetcher;
@@ -171,17 +176,30 @@ export interface Env {
 }
 ```
 
-- [ ] **Step 8: npm install + verify typecheck**
+- [ ] **Step 8: npm install**
 
 ```bash
-cd worker && npm install && npx tsc --noEmit
+cd worker && npm install
+```
+
+- [ ] **Step 9: Create the D1 database + fill in the id**
+
+```bash
+npx wrangler d1 create opencode-remote
+```
+Copy the `database_id` from the output and paste it into `worker/wrangler.jsonc` (replace `<D1_DATABASE_ID>`). The database is created here in Task 1 so the binding is real before any deploy; Task 2 only adds the schema.
+
+- [ ] **Step 10: Verify typecheck**
+
+```bash
+npx tsc --noEmit
 ```
 Expected: no errors (empty DO class is valid).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add -A && git commit -m "feat: scaffold Worker repo with wrangler.toml, DO binding, D1 binding, static assets"
+git add -A && git commit -m "feat: scaffold Worker repo with wrangler.jsonc, DO binding, D1 binding, static assets"
 ```
 
 ---
@@ -190,14 +208,16 @@ git add -A && git commit -m "feat: scaffold Worker repo with wrangler.toml, DO b
 
 **Files:**
 - Create: `worker/schema.sql`
-- Run: D1 database creation via Wrangler/API.
+- Run: D1 schema application via Wrangler (the database itself was created in Task 1 Step 9).
 
-- [ ] **Step 1: Create the D1 database**
+- [ ] **Step 1: Verify the D1 database exists**
+
+The `opencode-remote` database was created in Task 1 Step 9 and its `database_id` is already in `worker/wrangler.jsonc`. Confirm it's present:
 
 ```bash
-npx wrangler d1 create opencode-remote
+npx wrangler d1 list
 ```
-Copy the `database_id` from the output into `wrangler.toml` (replace `<D1_DATABASE_ID>`).
+Expected: `opencode-remote` appears in the list.
 
 - [ ] **Step 2: Create `worker/schema.sql`**
 
@@ -234,7 +254,7 @@ npx wrangler d1 execute opencode-remote --file=schema.sql
 - [ ] **Step 4: Commit**
 
 ```bash
-git add worker/schema.sql worker/wrangler.toml && git commit -m "feat: add D1 database + schema for sessions and machines"
+git add worker/schema.sql worker/wrangler.jsonc && git commit -m "feat: add D1 database + schema for sessions and machines"
 ```
 
 ---

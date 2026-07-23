@@ -1,6 +1,6 @@
 # OpenCode Remote Control
 
-Claude-style remote control for opencode — one domain, many machines, all Cloudflare.
+Claude-style remote control for opencode ï¿½ one domain, many machines, all Cloudflare.
 
 ## Stack
 - Cloudflare Workers (compute + routing)
@@ -10,4 +10,4 @@ Claude-style remote control for opencode — one domain, many machines, all Cloudf
 - cloudflared (per-machine tunnel)
 
 ## Status
-Phase 0+1 — scaffold + core relay. See docs/superpowers/specs/ for the design spec.
+Phase 0+1 ï¿½ scaffold + core relay. See docs/2026-07-22-opencode-remote-control.md (design spec) and docs/superpowers/plans/ (implementation plan).

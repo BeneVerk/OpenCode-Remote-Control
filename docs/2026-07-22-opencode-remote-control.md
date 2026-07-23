@@ -161,7 +161,7 @@ Machine A (desktop)           Machine B (laptop)
       relay.ts       — SessionRelay Durable Object class
       proxy.ts       — proxy logic (spike-proven, refactored)
     public/          — dashboard SPA (static HTML/CSS/JS, no build)
-    wrangler.toml    — bindings (DO, D1, KV, assets)
+    wrangler.jsonc    — bindings (DO, D1, KV, assets)
     schema.sql       — D1 table definitions
   agent/        — opencode-remote (PowerShell + future cross-platform)
     opencode-remote.ps1
@@ -170,7 +170,7 @@ Machine A (desktop)           Machine B (laptop)
   ```
 
 ## 9. Phased delivery (simplified — no Astro/Supabase setup)
-- **Phase 0** — repo + scaffold: create `BeneVerk/OpenCode-Remote-Control` (public), folder structure, `wrangler.toml` with D1 + DO + assets bindings, D1 schema, `.gitignore` with `.env.opencode`. Create the Access application on `opencode.beneverk.com` + configure email OTP. *(~1 hour)*
+- **Phase 0** — repo + scaffold: create `BeneVerk/OpenCode-Remote-Control` (public), folder structure, `wrangler.jsonc` with D1 + DO + assets bindings, D1 schema, `.gitignore` with `.env.opencode`. Create the Access application on `opencode.beneverk.com` + configure email OTP. *(~1 hour)*
 - **Phase 1** — Core relay: SessionRelay DO (ack/presence/alarms) + Worker routing + agent (`opencode-remote` with reconnect + session password) + cloudflared. Multi-machine behind one domain. (Builds on the proven spike.) *(~1 day)*
 - **Phase 2** — Dashboard SPA: static HTML/CSS/JS dashboard listing active sessions + history (from D1). Wire `/api/sessions`. *(~half day)*
 - **Phase 3** — Access identity providers: add Google + GitHub to the Access app. Session-password enforcement in the DO. *(~2 hours)*
@@ -187,7 +187,7 @@ Machine A (desktop)           Machine B (laptop)
 ## 11. Open questions / risks
 - **DO proxy vs WS relay for data path**: the spike proved the cloudflared-proxy path (Worker → cloudflared backend). Decide in Phase 1 whether the DO also proxies HTTP, or only handles the control/presence WS while the Worker proxies the data path. (Proxy is lower-risk; recommended.)
 - **Live two-way sync** through the DO/proxy — spike showed no errors but didn't run an interactive type-in-TUI test; confirm first in Phase 1.
-- **D1 from DO**: writing session registrations from a DO to D1 — confirm the binding works (DO → D1 binding in wrangler.toml). Alternative: DO writes to its own SQLite storage + a cron Worker syncs to D1.
+- **D1 from DO**: writing session registrations from a DO to D1 — confirm the binding works (DO → D1 binding in wrangler.jsonc). Alternative: DO writes to its own SQLite storage + a cron Worker syncs to D1.
 - **Access + WS**: Access protects HTTP routes; confirm WebSocket upgrade requests also pass through Access (they should — Access operates at L7).
 - **Cost/limits**: DO hibernation WS on free plan; D1 writes from DO; Access 50-user free limit.
 - **GitHub**: create `BeneVerk/OpenCode-Remote-Control` under the org (confirm org-creation permissions for `schatt93`).
