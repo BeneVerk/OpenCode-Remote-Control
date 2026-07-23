@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "opencode-remote-control",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-23",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [{ "name": "SESSION_RELAY", "class_name": "SessionRelay" }]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "opencode-remote",
+      "database_id": "8fb093dd-ec92-42d0-a25b-6f48f10b5114"
+    }
+  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SessionRelay"] }]
+}
