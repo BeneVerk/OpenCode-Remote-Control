@@ -118,8 +118,16 @@ export class SessionRelay extends DurableObject<Env> {
     }
   }
 
-  // Alarm fires when no heartbeat has been received for HEARTBEAT_TTL_MS -> mark offline.
+  // Alarm fires when no heartbeat has been received for HEARTBEAT_TTL_MS.
+  // Auto-ping/pong (setWebSocketAutoResponse) does NOT wake the DO, so presence
+  // is determined by whether any WS connection is still attached.
   async alarm(): Promise<void> {
+    // If the machine is still connected, the session stays online; just reschedule.
+    if (this.ctx.getWebSockets().length > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_TTL_MS);
+      return;
+    }
+    // No live connections -> mark the session offline.
     const meta = await this.ctx.storage.get<SessionMeta>("meta");
     if (meta) {
       await this.env.DB.prepare(
@@ -127,10 +135,6 @@ export class SessionRelay extends DurableObject<Env> {
       )
         .bind(Date.now(), meta.sessionId)
         .run();
-    }
-    // If connections are still alive, keep watching; otherwise stay offline.
-    if (this.ctx.getWebSockets().length > 0) {
-      await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_TTL_MS);
     }
   }
 
