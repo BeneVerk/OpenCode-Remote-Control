@@ -1,6 +1,16 @@
 // Volatile-only: fetch live each load, no localStorage / persistent client cache.
 const API = "";
 
+// R1: HTML-escape every field interpolated from /api/sessions before it touches the DOM.
+function esc(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function load() {
   try {
     const resp = await fetch(`${API}/api/sessions`);
@@ -14,18 +24,18 @@ async function load() {
       history.map(cardHtml).join("") || "<p class='muted'>No history.</p>";
   } catch (e) {
     document.getElementById("active-list").innerHTML =
-      `<p style="color:var(--red)">Error: ${e.message}</p>`;
+      `<p style="color:var(--red)">Error: ${esc(e.message)}</p>`;
   }
 }
 
 function cardHtml(s) {
   const b64 = btoa(s.project_path || "/");
-  const url = `/${b64}/session/${s.id}`;
+  const url = `/${encodeURIComponent(b64)}/session/${encodeURIComponent(s.id)}`;
   const time = new Date(s.updated_at).toLocaleString();
-  return `<a class="card" href="${url}">
-    <span class="title">${s.title || s.id}</span>
-    <span class="status ${s.status}">${s.status}</span>
-    <span class="time">${time}</span>
+  return `<a class="card" href="${esc(url)}">
+    <span class="title">${esc(s.title || s.id)}</span>
+    <span class="status ${esc(s.status)}">${esc(s.status)}</span>
+    <span class="time">${esc(time)}</span>
   </a>`;
 }
 
