@@ -2,14 +2,18 @@
   "name": "opencode-remote-control",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "wrangler": "^4.113.0",
     "typescript": "^7.0.0",
-    "@cloudflare/workers-types": "^5.0.0"
+    "@cloudflare/workers-types": "^5.0.0",
+    "vitest": "^4.1.10",
+    "@cloudflare/vitest-pool-workers": "^0.18.8"
   }
 }

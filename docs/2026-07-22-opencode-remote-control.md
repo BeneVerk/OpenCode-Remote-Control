@@ -185,10 +185,11 @@ Machine A (desktop)           Machine B (laptop)
 - **Spike (this session)** — CF Worker at `opencode-proxy-spike.frosty-sunset-b1de.workers.dev` proxied opencode's web UI (HTML + API + SSE) to a cloudflared backend with **zero console errors**. Session + full message history loaded. Data-path proxy is de-risked.
 
 ## 11. Open questions / risks
-- **DO proxy vs WS relay for data path**: the spike proved the cloudflared-proxy path (Worker → cloudflared backend). Decide in Phase 1 whether the DO also proxies HTTP, or only handles the control/presence WS while the Worker proxies the data path. (Proxy is lower-risk; recommended.)
-- **Live two-way sync** through the DO/proxy — spike showed no errors but didn't run an interactive type-in-TUI test; confirm first in Phase 1.
-- **D1 from DO**: writing session registrations from a DO to D1 — confirm the binding works (DO → D1 binding in wrangler.jsonc). Alternative: DO writes to its own SQLite storage + a cron Worker syncs to D1.
-- **Access + WS**: Access protects HTTP routes; confirm WebSocket upgrade requests also pass through Access (they should — Access operates at L7).
-- **Cost/limits**: DO hibernation WS on free plan; D1 writes from DO; Access 50-user free limit.
-- **GitHub**: create `BeneVerk/OpenCode-Remote-Control` under the org (confirm org-creation permissions for `schatt93`).
-- **Workers static assets + DO co-hosting**: confirm a single Worker can serve static assets AND route to DOs on the same origin (should work via the assets binding + fetch handler).
+*(Status reconciled post-implementation — AUDIT-RUN-023, 2026-07-26.)*
+- **DO proxy vs WS relay for data path**: the spike proved the cloudflared-proxy path (Worker → cloudflared backend). Decide in Phase 1 whether the DO also proxies HTTP, or only handles the control/presence WS while the Worker proxies the data path. (Proxy is lower-risk; recommended.) → **RESOLVED:** the `SessionRelay` DO proxies HTTP to the registered `backend` (tunnel URL); register→D1→dashboard→alarm verified live. Full browser→opencode-UI proxy E2E still **pending manual** run (Task 7).
+- **Live two-way sync** through the DO/proxy — spike showed no errors but didn't run an interactive type-in-TUI test; confirm first in Phase 1. → **STILL OPEN** (needs the live machine E2E).
+- **D1 from DO**: writing session registrations from a DO to D1 — confirm the binding works (DO → D1 binding in wrangler.jsonc). Alternative: DO writes to its own SQLite storage + a cron Worker syncs to D1. → **RESOLVED:** the DO persists to D1 via the `DB` binding (verified live); the `machines` table is also written on register.
+- **Access + WS**: Access protects HTTP routes; confirm WebSocket upgrade requests also pass through Access (they should — Access operates at L7). → **STILL OPEN:** Cloudflare Access is not yet enforced (Phase 3, audit F2). As an interim, the DO rejects cross-origin browser WS upgrades (Origin check, audit R10); the agent (no Origin) is unaffected.
+- **Cost/limits**: DO hibernation WS on free plan; D1 writes from DO; Access 50-user free limit. → **UNCHANGED** (free-tier; re-check at scale).
+- **GitHub**: create `BeneVerk/OpenCode-Remote-Control` under the org (confirm org-creation permissions for `schatt93`). → **RESOLVED:** repo created at `github.com/BeneVerk/OpenCode-Remote-Control`; all Phase 0+1 work pushed to `main`.
+- **Workers static assets + DO co-hosting**: confirm a single Worker can serve static assets AND route to DOs on the same origin (should work via the assets binding + fetch handler). → **RESOLVED:** confirmed live — `opencode.beneverk.com` serves the dashboard and routes `/<b64>/session/<id>` to the DO from one Worker.

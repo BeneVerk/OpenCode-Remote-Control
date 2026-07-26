@@ -18,7 +18,6 @@ param(
 # --- Helpers (defined before use; PowerShell does not hoist functions) ---
 
 # Control WSS loop: connect, ping every 30s, reconnect with exponential backoff.
-# Runs as a background job so the opencode TUI can run in the foreground.
 function Start-ControlWss {
     param([string]$WssUrl)
     return Start-Job -ScriptBlock {
@@ -33,7 +32,7 @@ function Start-ControlWss {
                 $cts.CancelAfter([TimeSpan]::FromSeconds(20))
                 $ws.ConnectAsync($url, $cts.Token).Wait()
                 if ($ws.State -ne 'Open') { throw "WebSocket not open after ConnectAsync" }
-                $backoff = 2  # connected; reset backoff
+                $backoff = 2
                 while ($ws.State -eq 'Open') {
                     $ping = [Text.Encoding]::UTF8.GetBytes("ping")
                     $sendCts = New-Object System.Threading.CancellationTokenSource
@@ -50,6 +49,28 @@ function Start-ControlWss {
             $backoff = [Math]::Min($backoff * 2, 60)
         }
     } -ArgumentList $WssUrl
+}
+
+# R7: write the tunnel token to an ACL-restricted config file (user-only) and run
+# cloudflared with --config, keeping the secret off the visible process command line.
+function Start-Cloudflared {
+    param([string]$Token, [string]$CfErrPath)
+    $cfgDir = Join-Path $env:LOCALAPPDATA "opencode-remote"
+    New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
+    $cfgPath = Join-Path $cfgDir ("tunnel-{0}.yml" -f ([guid]::NewGuid().ToString('n')))
+    "token: $Token" | Set-Content -Path $cfgPath -Encoding UTF8
+    # Restrict the file to the current user only.
+    try {
+        $acl = Get-Acl $cfgPath
+        $acl.SetAccessRuleProtection($true, $false)  # disable inheritance
+        $rule = New-Object Security.AccessControl.FileSystemAccessRule($env:USERNAME, 'FullControl', 'None')
+        $acl.AddAccessRule($rule)
+        Set-Acl -Path $cfgPath -AclObject $acl -ErrorAction SilentlyContinue
+    } catch { /* best-effort hardening */ }
+    $p = Start-Process -FilePath "cloudflared" `
+        -ArgumentList @("tunnel", "--no-autoupdate", "--config", $cfgPath, "run") `
+        -NoNewWindow -PassThru -RedirectStandardOutput "cf.log" -RedirectStandardError $CfErrPath
+    return @{ Process = $p; ConfigPath = $cfgPath }
 }
 
 # --- 1. Load .env.opencode ---
@@ -80,28 +101,30 @@ if ($Port -le 0) {
     if ($env:OPENCODE_PORT -and $env:OPENCODE_PORT -ne '0') {
         $Port = [int]$env:OPENCODE_PORT
     } else {
-        # Auto-pick a free port in the dynamic range.
         $Port = 49152
         while (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) { $Port++ }
         Write-Host "Auto-picked port: $Port"
     }
 }
 
-# --- 3. Start cloudflared tunnel (background) ---
+# --- 3. Start cloudflared tunnel (background, token via config file) ---
 Write-Host "Starting cloudflared tunnel..."
-$cf = Start-Process -FilePath "cloudflared" `
-    -ArgumentList @("tunnel", "--no-autoupdate", "run", "--token", $tunnelToken) `
-    -NoNewWindow -PassThru -RedirectStandardOutput "cf.log" -RedirectStandardError "cf.err"
+$cfErr = Join-Path (Get-Location).Path "cf.err"
+$cfInfo = Start-Cloudflared -Token $tunnelToken -CfErrPath $cfErr
+$cf = $cfInfo.Process
 Start-Sleep -Seconds 3  # let cloudflared connect
 
-# The backend URL the Worker/DO proxies to: the tunnel's public hostname
-# (configured in CF dashboard to route to http://localhost:$Port), or localhost
-# when running everything on one machine for dev.
+# R9: verify cloudflared didn't immediately exit (bad token / config / network).
+if ($cf.HasExited) {
+    $detail = if (Test-Path $cfErr) { (Get-Content $cfErr -Raw -ErrorAction SilentlyContinue) } else { "(no stderr)" }
+    if ($cfInfo.ConfigPath -and (Test-Path $cfInfo.ConfigPath)) { Remove-Item $cfInfo.ConfigPath -Force -ErrorAction SilentlyContinue }
+    throw "cloudflared exited immediately (code $($cf.ExitCode)). stderr: $detail"
+}
+
 $backend = if ($tunnelUrl) { $tunnelUrl } else { "http://localhost:$Port" }
 
 # --- 4. Determine session info ---
 $projPath = (Get-Location).Path
-# URL-safe base64 of the project path (the /<seg>/session/<id> URL segment).
 $projB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($projPath)).Replace('+', '-').Replace('/', '_').TrimEnd('=')
 $machine = $env:COMPUTERNAME
 if ($Session) {
@@ -116,11 +139,9 @@ if ($Session) {
     $sid = $null
 }
 
-# --- 5. Register with the platform (Worker -> DO) ---
+# --- 5. Register + control WSS ---
 $controlJob = $null
 if (-not $sid) {
-    # No session id yet -- opencode will create one on start. Use -c (continue) or
-    # -s <id> to register an existing session; new sessions register on next launch.
     Write-Warning "No sessionId resolved (use -c or -s <id>). Skipping register; dashboard won't list this session until registered."
 } else {
     $regBody = @{
@@ -147,18 +168,19 @@ if (-not $sid) {
         Write-Warning "Registration failed: $($_.Exception.Message)"
     }
 
-    # --- 6. Control WSS (presence + acks) ---
-    $wssUrl = $platformUrl.Replace('https://', 'wss://').Replace('http://', 'ws://') + "/$projB64/session/$sid`?role=machine"
+    # Control WSS (R14: URL-encode the path segments).
+    $encB64 = [uri]::EscapeDataString($projB64)
+    $encSid = [uri]::EscapeDataString($sid)
+    $wssUrl = $platformUrl.Replace('https://', 'wss://').Replace('http://', 'ws://') + "/$encB64/session/$encSid`?role=machine"
     $controlJob = Start-ControlWss -WssUrl $wssUrl
     Write-Host "Control WSS connected: $wssUrl"
 
-    # --- 7. Print the public URL ---
     Write-Host ""
     Write-Host "Web URL: $platformUrl/$projB64/session/$sid"
     Write-Host ""
 }
 
-# --- 8. Start opencode TUI (foreground -- blocks until exit) ---
+# --- 6. Start opencode TUI (foreground -- blocks until exit) ---
 $resumeArgs = @()
 if ($Continue) { $resumeArgs += '--continue' }
 if ($Session)  { $resumeArgs += @('--session', $Session) }
@@ -168,8 +190,9 @@ Write-Host "Starting opencode..."
 try {
     & opencode @cliArgs
 } finally {
-    # --- 9. Cleanup: stop control WSS + cloudflared ---
+    # --- 7. Cleanup: stop control WSS + cloudflared + remove token file ---
     if ($controlJob) { Stop-Job -Job $controlJob -ErrorAction SilentlyContinue; Remove-Job -Job $controlJob -Force -ErrorAction SilentlyContinue }
     if ($cf -and -not $cf.HasExited) { Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue }
+    if ($cfInfo.ConfigPath -and (Test-Path $cfInfo.ConfigPath)) { Remove-Item $cfInfo.ConfigPath -Force -ErrorAction SilentlyContinue }
     Write-Host "Agent stopped."
 }
