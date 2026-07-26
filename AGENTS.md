@@ -13,8 +13,8 @@
 ## What this is
 OpenCode Remote Control: a Claude-Code-"Remote Control"-style platform for **opencode** — one public domain serves browser access to opencode TUI sessions running on any of your machines. **100% Cloudflare free tier**: Workers + Durable Objects + D1 + Cloudflare Access + cloudflared. Execution stays on the originating machine; the cloud only relays.
 
-## Status — verify before assuming code exists
-Early scaffold (Phase 0+1). As of now `worker/src/`, `worker/public/`, and `agent/` are **empty** — no `wrangler.jsonc`, `package.json`, `tsconfig.json`, or `schema.sql` exist yet. Two docs are the source of truth for *intended* structure:
+## Status — Phase 0+1 built and deployed
+Phase 0+1 is **implemented and live**. `worker/` (Worker entry + `SessionRelay` DO + D1 `opencode-remote` + dashboard SPA) and `agent/` (`opencode-remote.ps1` + `start-opencode.ps1`) all exist. The Worker is deployed to **`opencode.beneverk.com`** (custom domain) under the BeneVerk account; the DO migration `v1` (`new_sqlite_classes: SessionRelay`) is applied; D1 schema (`sessions` + `machines`) is applied. Verified live: register → DO → D1 → `/api/sessions` → dashboard, plus alarm-driven presence (offline after 60s w/o heartbeat). **Remaining:** full live E2E with a real machine + cloudflared tunnel (Task 7 manual), and Cloudflare Access (Phase 3). Two docs remain the source of truth for *intended* structure:
 - `docs/2026-07-22-opencode-remote-control.md` — full design spec (architecture, data flows, open questions).
 - `docs/superpowers/plans/2026-07-22-opencode-remote-control-phase-0-1.md` — task-by-task plan with exact file contents.
 
@@ -42,7 +42,7 @@ docs/     specs + plans.
 
 ## Deployment targets
 - Git remote (current, temporary): `github.com/schatt-qwr/OpenCode-Remote-Control` (scratch remote). **Canonical home: `github.com/BeneVerk/OpenCode-Remote-Control`** — the `BeneVerk` org exists (id `297254514`, 0 repos currently); developer `schatt93`. Task 1 Step 1 creates the repo under `BeneVerk`, pushes existing history, and repoints the local remote from `schatt-qwr` → `BeneVerk`.
-- Cloudflare account: **BeneVerk** — account id `80f0a5ca91bf807fe0f1de55bd36f10f`; workers.dev subdomain `frosty-sunset-b1de`. Zone: **beneverk.com** (zone id `08c3a9b543015402f96143e7fb6a6c40`). Planned origin: `opencode.beneverk.com`. D1 name: `opencode-remote`. *(All from the plan — confirm in the CF dashboard before first deploy.)*
+- Cloudflare account: **BeneVerk** — account id `80f0a5ca91bf807fe0f1de55bd36f10f`; workers.dev subdomain `frosty-sunset-b1de` (workers_dev disabled — canonical-only). Zone: **beneverk.com** (zone id `08c3a9b543015402f96143e7fb6a6c40`). Origin (live): `opencode.beneverk.com` (Workers custom domain). D1 name: `opencode-remote` (uuid `8fb093dd-ec92-42d0-a25b-6f48f10b5114`). *(Confirmed in CF dashboard + via successful deploy.)*
 
 ## MCP servers (opencode.json)
 GitHub and DigitalOcean need **token auth via env** (`PROJECT_GITHUB_TOKEN`, `PROJECT_DO_TOKEN`, set in `.env.opencode`); supabase/sentry/context7/cloudflare use **browser OAuth cached once** in `~/.local/share/opencode/mcp-auth.json` (`opencode mcp auth <name>`). See the `.env.opencode` header comment for one-time auth steps.

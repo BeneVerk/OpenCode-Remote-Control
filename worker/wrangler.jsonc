@@ -3,6 +3,8 @@
   "name": "opencode-remote-control",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-23",
+  "account_id": "80f0a5ca91bf807fe0f1de55bd36f10f",
+  "routes": [{ "pattern": "opencode.beneverk.com", "custom_domain": true }],
   "assets": { "directory": "./public", "binding": "ASSETS" },
   "durable_objects": {
     "bindings": [{ "name": "SESSION_RELAY", "class_name": "SessionRelay" }]
