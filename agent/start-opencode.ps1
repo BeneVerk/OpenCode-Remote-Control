@@ -4,6 +4,10 @@
 # the public URL. Foreground is the opencode TUI; the WSS + cloudflared run in
 # the background and are cleaned up on exit.
 #
+# Authenticates to Cloudflare Access with a service token (CF-Access-Client-Id /
+# CF-Access-Client-Secret) so the machine can reach /register and the WSS behind
+# Access. Browser users authenticate via email OTP separately.
+#
 # Usage (via the thin wrapper opencode-remote.ps1):
 #   .\opencode-remote.ps1 [-c] [-s <session-id>] [--port <n>] [extra opencode args]
 
@@ -18,16 +22,21 @@ param(
 # --- Helpers (defined before use; PowerShell does not hoist functions) ---
 
 # Control WSS loop: connect, ping every 30s, reconnect with exponential backoff.
+# Sends the Access service-token headers on the upgrade so Access admits the machine.
 function Start-ControlWss {
-    param([string]$WssUrl)
+    param([string]$WssUrl, [string]$AccessClientId, [string]$AccessClientSecret)
     return Start-Job -ScriptBlock {
-        param($url)
+        param($url, $clientId, $clientSecret)
         Add-Type -AssemblyName System.Net.WebSockets | Out-Null
         $backoff = 2
         while ($true) {
             $ws = $null
             try {
                 $ws = New-Object System.Net.WebSockets.ClientWebSocket
+                if ($clientId) {
+                    $ws.Options.SetRequestHeader("CF-Access-Client-Id", $clientId)
+                    $ws.Options.SetRequestHeader("CF-Access-Client-Secret", $clientSecret)
+                }
                 $cts = New-Object System.Threading.CancellationTokenSource
                 $cts.CancelAfter([TimeSpan]::FromSeconds(20))
                 $ws.ConnectAsync($url, $cts.Token).Wait()
@@ -48,7 +57,7 @@ function Start-ControlWss {
             Start-Sleep -Seconds $backoff
             $backoff = [Math]::Min($backoff * 2, 60)
         }
-    } -ArgumentList $WssUrl
+    } -ArgumentList $WssUrl, $AccessClientId, $AccessClientSecret
 }
 
 # R7: write the tunnel token to an ACL-restricted config file (user-only) and run
@@ -59,10 +68,9 @@ function Start-Cloudflared {
     New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
     $cfgPath = Join-Path $cfgDir ("tunnel-{0}.yml" -f ([guid]::NewGuid().ToString('n')))
     "token: $Token" | Set-Content -Path $cfgPath -Encoding UTF8
-    # Restrict the file to the current user only.
     try {
         $acl = Get-Acl $cfgPath
-        $acl.SetAccessRuleProtection($true, $false)  # disable inheritance
+        $acl.SetAccessRuleProtection($true, $false)
         $rule = New-Object Security.AccessControl.FileSystemAccessRule($env:USERNAME, 'FullControl', 'None')
         $acl.AddAccessRule($rule)
         Set-Acl -Path $cfgPath -AclObject $acl -ErrorAction SilentlyContinue
@@ -88,13 +96,25 @@ if (Test-Path $envFile) {
     Write-Warning ".env.opencode not found in current directory -- platform/tunnel env vars must already be set."
 }
 
-$platformUrl = $env:OPENCODE_REMOTE_URL   # e.g. https://opencode.beneverk.com
-$tunnelToken = $env:OPENCODE_TUNNEL_TOKEN
-$tunnelUrl   = $env:OPENCODE_TUNNEL_URL   # e.g. https://desktop-tunnel.beneverk.com
-$sessionPwd  = $env:OPENCODE_SESSION_PASSWORD
+$platformUrl       = $env:OPENCODE_REMOTE_URL       # e.g. https://opencode.beneverk.com
+$tunnelToken       = $env:OPENCODE_TUNNEL_TOKEN
+$tunnelUrl         = $env:OPENCODE_TUNNEL_URL       # e.g. https://desktop-tunnel.beneverk.com
+$sessionPwd        = $env:OPENCODE_SESSION_PASSWORD
+$accessClientId    = $env:OPENCODE_ACCESS_CLIENT_ID      # Cloudflare Access service token (machine auth)
+$accessClientSecret = $env:OPENCODE_ACCESS_CLIENT_SECRET
 
 if (-not $platformUrl) { throw "OPENCODE_REMOTE_URL not set (in .env.opencode or env)." }
 if (-not $tunnelToken) { throw "OPENCODE_TUNNEL_TOKEN not set (in .env.opencode or env)." }
+if (-not $accessClientId -or -not $accessClientSecret) {
+    Write-Warning "OPENCODE_ACCESS_CLIENT_ID / OPENCODE_ACCESS_CLIENT_SECRET not set -- Access will block registration and the control WSS."
+}
+
+# Headers the agent sends on every platform request so Access admits it.
+$accessHeaders = @{}
+if ($accessClientId -and $accessClientSecret) {
+    $accessHeaders["CF-Access-Client-Id"] = $accessClientId
+    $accessHeaders["CF-Access-Client-Secret"] = $accessClientSecret
+}
 
 # --- 2. Pick port ---
 if ($Port -le 0) {
@@ -112,9 +132,8 @@ Write-Host "Starting cloudflared tunnel..."
 $cfErr = Join-Path (Get-Location).Path "cf.err"
 $cfInfo = Start-Cloudflared -Token $tunnelToken -CfErrPath $cfErr
 $cf = $cfInfo.Process
-Start-Sleep -Seconds 3  # let cloudflared connect
+Start-Sleep -Seconds 3
 
-# R9: verify cloudflared didn't immediately exit (bad token / config / network).
 if ($cf.HasExited) {
     $detail = if (Test-Path $cfErr) { (Get-Content $cfErr -Raw -ErrorAction SilentlyContinue) } else { "(no stderr)" }
     if ($cfInfo.ConfigPath -and (Test-Path $cfInfo.ConfigPath)) { Remove-Item $cfInfo.ConfigPath -Force -ErrorAction SilentlyContinue }
@@ -157,6 +176,7 @@ if (-not $sid) {
     try {
         $regResp = Invoke-WebRequest -Uri "$platformUrl/register" -Method POST `
             -Body ($regBody | ConvertTo-Json) -ContentType "application/json" `
+            -Headers $accessHeaders `
             -UseBasicParsing -TimeoutSec 10
         $regJson = $regResp.Content | ConvertFrom-Json
         if ($regJson.ack -eq "registered") {
@@ -168,11 +188,10 @@ if (-not $sid) {
         Write-Warning "Registration failed: $($_.Exception.Message)"
     }
 
-    # Control WSS (R14: URL-encode the path segments).
     $encB64 = [uri]::EscapeDataString($projB64)
     $encSid = [uri]::EscapeDataString($sid)
     $wssUrl = $platformUrl.Replace('https://', 'wss://').Replace('http://', 'ws://') + "/$encB64/session/$encSid`?role=machine"
-    $controlJob = Start-ControlWss -WssUrl $wssUrl
+    $controlJob = Start-ControlWss -WssUrl $wssUrl -AccessClientId $accessClientId -AccessClientSecret $accessClientSecret
     Write-Host "Control WSS connected: $wssUrl"
 
     Write-Host ""
@@ -190,7 +209,6 @@ Write-Host "Starting opencode..."
 try {
     & opencode @cliArgs
 } finally {
-    # --- 7. Cleanup: stop control WSS + cloudflared + remove token file ---
     if ($controlJob) { Stop-Job -Job $controlJob -ErrorAction SilentlyContinue; Remove-Job -Job $controlJob -Force -ErrorAction SilentlyContinue }
     if ($cf -and -not $cf.HasExited) { Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue }
     if ($cfInfo.ConfigPath -and (Test-Path $cfInfo.ConfigPath)) { Remove-Item $cfInfo.ConfigPath -Force -ErrorAction SilentlyContinue }

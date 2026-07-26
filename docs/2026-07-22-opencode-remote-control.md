@@ -116,7 +116,7 @@ Machine A (desktop)           Machine B (laptop)
 - Live data fetched fresh each load (no permanent client cache; aligns with the "always fetch from API, volatile only" rule).
 
 ### 4.7 Per-project config — `.env.opencode` (gitignored)
-- Per-project file holding tunnel config: `OPENCODE_TUNNEL_TOKEN`, `OPENCODE_TUNNEL_URL`, `OPENCODE_PORT`, `OPENCODE_CORS_ORIGIN`, optional `OPENCODE_SESSION_PASSWORD`.
+- Per-project file holding tunnel + Access config: `OPENCODE_TUNNEL_TOKEN`, `OPENCODE_TUNNEL_URL`, `OPENCODE_PORT`, `OPENCODE_CORS_ORIGIN`, optional `OPENCODE_SESSION_PASSWORD`, and the Cloudflare Access machine credentials `OPENCODE_ACCESS_CLIENT_ID` + `OPENCODE_ACCESS_CLIENT_SECRET` (service token — the agent sends these as `CF-Access-Client-Id`/`-Secret` headers so it can reach `/register` and the control WSS behind Access).
 - Always gitignored (repo-level `.gitignore` entry). Loaded by the agent at startup.
 
 ## 5. Data flows
