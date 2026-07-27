@@ -1,0 +1,55 @@
+---
+title: Opencode Remote Fleet
+description: Aggregate and remote-control opencode sessions across all your machines from one place.
+template: splash
+hero:
+  tagline: All your opencode sessions, across all your machines, in one place you control.
+  actions:
+    - text: Architecture
+      link: /architecture/context/
+      icon: right-arrow
+      variant: primary
+    - text: Decision Records
+      link: /adr/0001-proxy-mode-adapter/
+      icon: document
+---
+
+import Mermaid from "../../components/Mermaid.astro";
+
+<Mermaid
+  code={`flowchart LR
+User([You]) --> Browser[Browser]
+Browser -->|HTTPS| Access[Cloudflare Access<br/>login gate]
+Access --> Fleet["Opencode Remote Fleet<br/>(aggregator + proxy)"]
+Fleet <-->|registry + notifications| Store[("D1 + KV")]
+Fleet -->|transparent proxy<br/>per-machine subdomain| T1[cloudflared tunnel]
+Fleet -->|transparent proxy| T2[cloudflared tunnel]
+T1 --> M1["Machine A<br/>opencode + agent"]
+T2 --> M2["Machine B<br/>opencode + agent"]
+M1 -. agent control WSS<br/>+ notification forward .-> Fleet
+M2 -. agent control WSS .-> Fleet`}
+/>
+
+## What it is
+
+Opencode Remote Fleet is a **remote control + aggregation plane** for
+[opencode](https://opencode.ai) coding-agent sessions running across all your
+machines. One domain (`opencode.beneverk.com`) gives you a single dashboard of
+every machine + every active session, with live status and **notifications**
+("session waiting for input/approval") that deep-link you straight to the
+session that needs you.
+
+## What you get
+
+- **One pane of glass** — machines and their sessions, grouped, with live status.
+- **Notifications** — when a session needs an answer, the Fleet tells you; one click lands you in it.
+- **Unmodified opencode UI** — served transparently, per machine, behind the same auth gate.
+- **Auth-gated** — Cloudflare Access (cloud) or a pluggable self-hosted gate.
+- **Self-hostable** — the same core runs on your own machine (Deno), exposed via tunnel or static IP.
+
+## Where to next
+
+- **[System context](/architecture/context/)** — the big picture.
+- **[Containers](/architecture/containers/)** — what lives inside the Fleet.
+- **[Data flows](/architecture/data-flows/)** — registration, presence, notifications, opening a session.
+- **[Proxy modes](/adr/0002-subdomain-vs-convertor/)** — why per-machine subdomain + an optional subpath convertor.

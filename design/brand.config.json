@@ -1,0 +1,35 @@
+{
+  "$schema": "./brand.schema.json",
+  "name": "Opencode Remote Fleet",
+  "tagline": "All your opencode sessions, across all your machines.",
+  "favicon": "/brand/favicon.svg",
+  "logo": {
+    "light": "/brand/logo-light.svg",
+    "dark": "/brand/logo-dark.svg",
+    "load": "light"
+  },
+  "colors": {
+    "accent": "#58a6ff",
+    "accentPress": "#79b8ff",
+    "bg": "#0d1117",
+    "surface": "#161b22",
+    "surface2": "#1c2230",
+    "border": "#30363d",
+    "text": "#c9d1d9",
+    "muted": "#8b949e",
+    "status": {
+      "online": "#3fb950",
+      "offline": "#f85149",
+      "waiting": "#d29922"
+    }
+  },
+  "assets": {
+    "light": ["/brand/favicon.svg", "/brand/logo-light.svg"],
+    "heavy": []
+  },
+  "defaults": {
+    "locale": "en",
+    "theme": "dark",
+    "fluid": true
+  }
+}

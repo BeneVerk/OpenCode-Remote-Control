@@ -1,3 +1,8 @@
+---
+title: "Original Design Spec (legacy)"
+description: "The original all-Cloudflare design spec for Opencode Remote Fleet, pre-implementation. Retained for reference."
+---
+
 # OpenCode Remote Control — Design Spec (all-Cloudflare)
 
 > Status: draft for review · 2026-07-22 · Brainstorming output (pre-implementation-plan)

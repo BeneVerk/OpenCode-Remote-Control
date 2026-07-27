@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Opencode Remote Fleet — Dashboard (mockup)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230d1117'/><circle cx='32' cy='28' r='14' fill='none' stroke='%2358a6ff' stroke-width='3'/><circle cx='32' cy='28' r='3.5' fill='%2358a6ff'/><circle cx='18' cy='44' r='3' fill='%233fb950'/><circle cx='46' cy='44' r='3' fill='%233fb950'/></svg>" />
+    <link rel="stylesheet" href="./styles.css" />
+    <meta name="description" content="Standalone UI/UX mockup for the Opencode Remote Fleet aggregator dashboard. Editable externally." />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand__logo" alt="" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230d1117'/><circle cx='32' cy='28' r='14' fill='none' stroke='%2358a6ff' stroke-width='3'/><circle cx='32' cy='28' r='3.5' fill='%2358a6ff'/><circle cx='18' cy='44' r='3' fill='%233fb950'/><circle cx='32' cy='50' r='3' fill='%233fb950'/><circle cx='46' cy='44' r='3' fill='%233fb950'/></svg>" width="34" height="34" />
+        <div class="brand__text">
+          <strong id="brand-name">Opencode Remote Fleet</strong>
+          <span id="brand-tagline">All your machines, in one place.</span>
+        </div>
+      </div>
+      <div class="topbar__actions">
+        <label class="search">
+          <input id="search" type="search" placeholder="Filter machines or sessions…" aria-label="Filter" />
+        </label>
+        <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">🌓</button>
+        <span class="whoami" title="Signed in">admin@beneverk.com</span>
+      </div>
+    </header>
+
+    <main id="main" class="container">
+      <section class="summary" aria-label="Summary">
+        <div class="summary__card"><span id="stat-machines" class="summary__num">0</span><span class="summary__label">machines</span></div>
+        <div class="summary__card"><span id="stat-sessions" class="summary__num">0</span><span class="summary__label">sessions</span></div>
+        <div class="summary__card summary__card--alert"><span id="stat-waiting" class="summary__num">0</span><span class="summary__label">waiting</span></div>
+      </section>
+
+      <section id="machines" class="machines" aria-live="polite">
+        <!-- rendered by app.js -->
+      </section>
+    </main>
+
+    <aside id="toasts" class="toasts" aria-live="assertive" aria-atomic="false"></aside>
+
+    <footer class="footer">
+      <span>Opencode Remote Fleet · dashboard mockup · edit freely</span>
+      <a href="https://github.com/BeneVerk/OpenCode-Remote-Control">GitHub</a>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

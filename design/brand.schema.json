@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Opencode Remote Fleet — brand config",
+  "type": "object",
+  "required": ["name", "colors"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "description": "Product name shown in the dashboard + docs" },
+    "tagline": { "type": "string" },
+    "favicon": { "type": "string", "description": "Path or URL to favicon" },
+    "logo": {
+      "type": "object",
+      "properties": {
+        "light": { "type": "string" },
+        "dark": { "type": "string" },
+        "load": { "type": "string", "enum": ["light", "dark"], "description": "Which variant is loaded eagerly (the other is swapped on theme change)" }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "required": ["accent", "bg", "surface", "border", "text"],
+      "properties": {
+        "accent": { "type": "string" },
+        "accentPress": { "type": "string" },
+        "bg": { "type": "string" },
+        "surface": { "type": "string" },
+        "surface2": { "type": "string" },
+        "border": { "type": "string" },
+        "text": { "type": "string" },
+        "muted": { "type": "string" },
+        "status": {
+          "type": "object",
+          "properties": {
+            "online": { "type": "string" },
+            "offline": { "type": "string" },
+            "waiting": { "type": "string" }
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "description": "light = loaded eagerly; heavy = lazy-loaded",
+      "properties": {
+        "light": { "type": "array", "items": { "type": "string" } },
+        "heavy": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "locale": { "type": "string" },
+        "theme": { "type": "string", "enum": ["dark", "light"] },
+        "fluid": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+---
+title: Data Flows
+description: Registration, presence, notifications, and opening a session (both proxy modes).
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+Four flows make the Fleet work. The first three are identical in every proxy
+mode; the fourth (opening a session) is where the two `ProxyMode` adapters
+differ.
+
+<Mermaid
+  code={`flowchart LR
+  subgraph "1. Register"
+    A1[agent] -->|"POST /register<br/>(service token)"| W1[Worker]
+    W1 -->|write| D1A[("machines / sessions")]
+    W1 -->|cache| KVA[("KV machine→backend")]
+  end
+  subgraph "2. Presence"
+    A2[agent] -->|"WSS /_control<br/>ping every 30s"| W2[Worker → DO]
+    W2 -.->|"no WS for 60s → alarm"| D1B[("sessions.status = offline")]
+  end
+  subgraph "3. Notification"
+    OC[opencode /event SSE] -->|listen| A3[agent]
+    A3 -->|"forward 'waiting-for-input'"| W3[Worker]
+    W3 -->|store + push| D1C[("notifications")]
+    W3 -.->|web notification| B3[Browser]
+  end
+  subgraph "4. Open a session"
+    B4[Browser] -->|click session| W4[Worker]
+    W4 -->|"SubdomainProxyMode: redirect to <machine>.fleet"| Sub["<machine>.opencode.beneverk.com"]
+    W4 -->|"SubpathRewriteProxyMode: serve at /<machine>/<sid> + shim"| Path["rewrite fetch/XHR/WS under prefix"]
+    Sub --> Backend[opencode web-UI]
+    Path --> Backend
+  end`}
+/>
+
+## 1 — Registration
+
+`fleet-agent` authenticates with a Cloudflare Access **service token**
+(`CF-Access-Client-Id`/`-Secret`) and `POST /register`s `{machine, backend, sessions}`.
+The Worker writes the registry (D1) + caches `machine → backend` (KV). The
+machine id is DNS-safe (normalized from hostname) since it becomes the
+subdomain label.
+
+## 2 — Presence
+
+The agent keeps a resilient **control WSS** to `/_control` on the apex, pinging
+every 30 s (Hibernation auto-response). The per-session `SessionRelay` DO
+reschedules its alarm on any WS activity; if **no WS is attached for 60 s**, the
+alarm flips the session to `offline`. (Auto-ping does **not** wake the DO —
+presence is derived from whether a WS is still attached.)
+
+## 3 — Notification
+
+The agent subscribes to opencode's **`/event` SSE** on its localhost server and
+forwards relevant events (permission requests / "waiting-for-input") to the
+aggregator. The aggregator stores them and pushes to connected dashboards; the
+dashboard fires a **Web Notification**; clicking it deep-links to the session.
+
+## 4 — Open a session
+
+Two selectable adapters (see [ADR-0002](../adr/0002-subdomain-vs-convertor/)):
+
+- **`SubdomainProxyMode`** (cloud default) — dashboard link →
+  `opencode.beneverk.com/<machine>/<session>` → **302** to
+  `<machine>.opencode.beneverk.com` → transparent proxy to that machine's
+  backend. opencode's absolute-path API resolves natively on its own origin.
+- **`SubpathRewriteProxyMode`** (convertor / domain-less fallback) — serves the
+  UI at `/<machine>/<session>` and injects a `fetch`/`XHR`/`WebSocket`/`EventSource`
+  shim to repoint absolute paths under the prefix.

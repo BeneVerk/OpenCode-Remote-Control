@@ -1,6 +1,8 @@
 node_modules/
 .wrangler/
 dist/
+.turbo/
+.astro/
 .env.opencode
 .env
 *.log

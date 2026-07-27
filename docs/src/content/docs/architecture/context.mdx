@@ -1,0 +1,48 @@
+---
+title: System Context
+description: C4 Level 1 — Opencode Remote Fleet and the actors/systems around it.
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+The system context shows the Fleet as a single system and the people + external
+systems it interacts with.
+
+<Mermaid
+  code={`flowchart LR
+  subgraph People
+    User([You — the developer])
+  end
+  subgraph "Opencode Remote Fleet (system boundary)"
+    Fleet["Fleet<br/>aggregator + proxy + dashboard"]
+  end
+  User -->|uses| Browser[Browser]
+  Browser -->|HTTPS via Cloudflare Access| Fleet
+  Fleet -->|"transparent proxy (per-machine subdomain)"| Tunnels[cloudflared tunnels]
+  Tunnels --> MachineA["Machine A<br/>opencode + fleet-agent"]
+  Tunnels --> MachineB["Machine B<br/>opencode + fleet-agent"]
+  MachineA -.->|"control WSS<br/>+ notification forward"| Fleet
+  MachineB -.->|"control WSS"| Fleet
+  Fleet <-->|registry + notifications| Data[("D1 + KV")]
+  MachineA -->|runs AI provider calls| Provider[LLM Providers]
+  MachineB -->|runs AI provider calls| Provider`}
+/>
+
+## Actors
+
+- **You (developer)** — own all the machines; one identity (Cloudflare Access, or a self-hosted gate).
+- **Browser** — the only client; never types per-machine URLs (the Fleet generates them).
+
+## External systems
+
+- **Cloudflare Access** — the auth gate in cloud mode (email OTP / OIDC); pluggable in self-hosted mode.
+- **cloudflared tunnels** — each machine exposes its opencode web-UI on a tunnel hostname; the Fleet proxies it.
+- **opencode** — runs untouched on each machine; one web-UI per machine serves all that machine's sessions.
+- **D1 + KV** — registry (machines, sessions, notifications) + edge-cached `machine → backend` map.
+- **LLM providers** — called by opencode on the machine; the Fleet never touches that traffic.
+
+## Key invariant
+
+The Fleet **aggregates + authenticates + proxies**; it never runs opencode or
+touches model traffic. Execution stays on the originating machine — the cloud
+only relays.

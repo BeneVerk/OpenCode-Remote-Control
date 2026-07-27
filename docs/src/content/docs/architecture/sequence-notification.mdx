@@ -1,0 +1,50 @@
+---
+title: Notification Lifecycle
+description: Sequence — from an opencode event to a browser notification you can click.
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+How "session X is waiting for input" becomes a clickable web notification.
+
+<Mermaid
+  code={`sequenceDiagram
+  participant OC as opencode (machine)
+  participant A as fleet-agent
+  participant W as Aggregator Worker
+  participant B as Browser (dashboard)
+  OC->>A: SSE /event  { session.status: "waiting_for_permission" }
+  A->>A: filter: is this a notify-worthy event?
+  A->>W: POST /notify (service token) { machine, session, type, detail }
+  W->>W: store in notifications table
+  W-->>B: push (dashboard SSE/WS or poll)
+  B->>B: fire Web Notification("Session X needs your input")
+  Note over B: user clicks the notification
+  B->>W: GET /<machine>/<session>
+  W-->>B: 302 → <machine>.opencode.beneverk.com
+  B->>W: GET <machine>.opencode.beneverk.com/...
+  W->>OC: transparent proxy (HTTP/WS/SSE)
+  OC-->>B: opencode web-UI for that session`}
+/>
+
+## Why this shape
+
+- The **agent** is the only thing that can see opencode's local `/event` stream,
+  so it owns event collection and forwards only notify-worthy events (keeps the
+  aggregator dumb + the machine authoritative).
+- The **aggregator** is the fan-out point: it stores notifications (history) and
+  pushes to every connected dashboard.
+- The **browser** turns the push into a native Web Notification, so the user gets
+  notified even if the tab is in the background (with permission).
+- The **deep-link** uses the same `/<machine>/<session>` → subdomain redirect as
+  a normal session open (see [data flows](./data-flows/)).
+
+## Notify-worthy events (initial set)
+
+To be validated against opencode's event stream at integration time:
+
+- session status → `waiting_for_permission` (a tool needs approval)
+- session status → `idle` after `busy` (finished / awaiting input)
+
+These map directly to opencode's documented `/session/:id/permissions/:permissionID`
+flow and session status field.

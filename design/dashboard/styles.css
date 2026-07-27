@@ -1,0 +1,161 @@
+/* Opencode Remote Fleet — dashboard mockup.
+   Modern, dark-first, fully responsive (mobile → desktop, portrait + landscape).
+   Tokens mirror design/brand.config.json; edit there to rebrand for real. */
+
+:root {
+  --accent: #58a6ff;
+  --accent-press: #79b8ff;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-2: #1c2230;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --online: #3fb950;
+  --offline: #f85149;
+  --waiting: #d29922;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --maxw: 1100px;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-theme="light"] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #57606a;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-press); text-decoration: underline; }
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--accent); color: #000; padding: 8px 12px; border-radius: 0 0 var(--radius-sm) 0;
+}
+.skip:focus { left: 0; }
+
+/* Top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px clamp(12px, 4vw, 32px);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand__logo { flex: none; border-radius: 9px; background: var(--surface); }
+.brand__text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.brand__text strong { font-size: 15px; }
+.brand__text span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar__actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.search input {
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 999px; padding: 8px 14px; font: inherit; min-width: 200px; max-width: 42vw;
+}
+.search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-btn {
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; width: 36px; height: 36px; font-size: 16px; cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--accent); }
+.whoami { font-size: 13px; color: var(--muted); }
+
+/* Layout */
+.container { max-width: var(--maxw); margin: 0 auto; padding: clamp(16px, 4vw, 32px); }
+
+.summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;
+}
+.summary__card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow);
+}
+.summary__num { font-size: 28px; font-weight: 700; }
+.summary__label { color: var(--muted); font-size: 13px; text-transform: capitalize; }
+.summary__card--alert .summary__num { color: var(--waiting); }
+
+/* Machines */
+.machines { display: flex; flex-direction: column; gap: 24px; }
+.machine__head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.machine__title { font-size: 16px; font-weight: 600; margin: 0; }
+.machine__sub { color: var(--muted); font-size: 13px; }
+.machine__sub a { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; font-size: 12px; }
+.machine__sessions {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit;
+  transition: border-color 0.12s, transform 0.06s;
+}
+a.card:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+.card__title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.card__meta { color: var(--muted); font-size: 12px; }
+.card__pill {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; color: #000;
+  align-self: flex-start; text-transform: capitalize;
+}
+.pill--online { background: var(--online); }
+.pill--offline { background: var(--offline); color: #fff; }
+.pill--waiting { background: var(--waiting); }
+.card--waiting { border-color: var(--waiting); box-shadow: 0 0 0 1px var(--waiting) inset; }
+
+.empty { color: var(--muted); padding: 32px; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius); }
+
+/* Toasts */
+.toasts {
+  position: fixed; right: clamp(12px, 3vw, 24px); bottom: clamp(12px, 3vw, 24px); z-index: 50;
+  display: flex; flex-direction: column; gap: 10px; max-width: min(380px, calc(100vw - 24px));
+}
+.toast {
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--waiting);
+  border-radius: var(--radius-sm); padding: 12px 14px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 4px; animation: slidein 0.18s ease-out;
+}
+.toast__title { font-weight: 600; font-size: 13px; }
+.toast__body { font-size: 12px; color: var(--muted); }
+.toast__actions { display: flex; gap: 8px; margin-top: 6px; }
+.toast__btn {
+  font: inherit; font-size: 12px; font-weight: 600; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+.toast__btn--primary { background: var(--accent); border-color: var(--accent); color: #000; }
+@keyframes slidein { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.footer {
+  max-width: var(--maxw); margin: 0 auto; padding: 24px clamp(16px, 4vw, 32px);
+  color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .summary { grid-template-columns: 1fr; }
+  .search input { min-width: 0; width: 100%; }
+  .topbar__actions { width: 100%; }
+  .whoami { display: none; }
+}
+@media (max-width: 480px) {
+  .brand__text span { display: none; }
+  .machine__sessions { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

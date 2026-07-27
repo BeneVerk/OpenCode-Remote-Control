@@ -1,8 +1,9 @@
 {
-  "name": "opencode-remote-control",
+  "name": "@beneverk/opencode-remote-fleet-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Cloudflare Worker for Opencode Remote Fleet — aggregator dashboard, registry, per-machine transparent proxy, and notification hub.",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

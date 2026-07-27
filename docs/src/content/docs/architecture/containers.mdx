@@ -1,0 +1,56 @@
+---
+title: Containers
+description: C4 Level 2 — the containers inside Opencode Remote Fleet.
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+Inside the Fleet system boundary, the components and their relationships.
+
+<Mermaid
+  code={`flowchart TB
+  subgraph "Cloudflare (cloud deployment)"
+    Worker["Aggregator Worker<br/>(apex: dashboard + API + notify hub)"]
+    Proxy["Wildcard Proxy<br/>(<machine>.opencode.beneverk.com)"]
+    DO["SessionRelay DO<br/>(per session: presence + acks)"]
+    D1[("D1<br/>machines + sessions + notifications")]
+    KV[("KV<br/>machine → backend cache")]
+    Assets["Dashboard SPA<br/>(static)"]
+    Worker --> Assets
+    Worker --> DO
+    Worker --> D1
+    Worker --> KV
+    Proxy --> KV
+    Proxy -->|transparent HTTP/WS/SSE| BackendA["Machine A backend"]
+    Proxy -->|transparent HTTP/WS/SSE| BackendB["Machine B backend"]
+  end
+  subgraph "Each machine"
+    Agent["fleet-agent<br/>(register + control WSS + SSE-listen)"]
+    OC["opencode web<br/>(serves the UI + API)"]
+    Cf["cloudflared"]
+    Agent --> OC
+    Cf --> OC
+  end
+  Agent -.->|register + WSS + notify| Worker
+  BackendA --- Cf
+  BackendB --- Cf`}
+/>
+
+## Containers
+
+| Container | Responsibility | Tech |
+| --- | --- | --- |
+| **Aggregator Worker** (apex) | dashboard, registry API (`/api/machines`, `/api/sessions`, `/api/notifications`), notification hub, agent endpoints (`/register`, `/_control`) | Cloudflare Worker (`@beneverk/opencode-remote-fleet-worker`) |
+| **Wildcard Proxy** | transparent per-machine proxy (`<machine>.opencode.beneverk.com`) — HTTP, WS, SSE | same Worker, host-routed; `ProxyMode` adapter (subdomain default, subpath-convertor fallback) |
+| **SessionRelay DO** | per-session presence, acks, alarm-driven offline | Cloudflare Durable Object (Hibernation WS) |
+| **D1** | authoritative registry: `machines`, `sessions`, `notifications` | Cloudflare D1 (SQLite) |
+| **KV** | edge-cached `machine → backend` for the proxy | Cloudflare KV (optional index) |
+| **Dashboard SPA** | the aggregator UI (grouped machines + sessions + notifications) | static HTML/CSS/JS (designed in `design/dashboard/`) |
+| **fleet-agent** | per-machine: starts opencode + cloudflared, registers, keeps control WSS, forwards opencode events | PowerShell now (`@beneverk/opencode-remote-fleet-agent`), cross-platform TS later |
+
+## Self-hosted variant (deferred — P5)
+
+The aggregator core (registry, routing, notifications, dashboard) is runtime-agnostic
+behind adapter interfaces (`Storage`, `Realtime`, `AuthProvider`, `Edge`). The
+self-hosted target is a **Deno single-binary server** that reuses the dashboard
+and points at a local SQLite — see [deployment topologies](./deployment/).

@@ -1,0 +1,40 @@
+---
+// Client-side Mermaid renderer. Usage in MDX:
+//   import Mermaid from "../../components/Mermaid.astro";
+//   <Mermaid code={`flowchart LR ...`} />
+interface Props {
+  code: string;
+}
+const { code } = Astro.props;
+---
+<pre class="mermaid" set:html={code}></pre>
+
+<script>
+  import mermaid from "mermaid";
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "dark",
+    securityLevel: "loose",
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    themeVariables: {
+      primaryColor: "#1f6feb",
+      primaryTextColor: "#c9d1d9",
+      primaryBorderColor: "#58a6ff",
+      lineColor: "#8b949e",
+      secondaryColor: "#161b22",
+      tertiaryColor: "#0d1117",
+      fontFamily: "Inter, system-ui, sans-serif",
+    },
+  });
+
+  const render = () => {
+    const nodes = document.querySelectorAll<HTMLElement>(".mermaid:not([data-processed])");
+    if (nodes.length === 0) return;
+    mermaid.run({ nodes: Array.from(nodes) }).catch((err) => console.error("mermaid", err));
+  };
+
+  // Initial render + re-render on Starlight/Astro view-transitions.
+  document.addEventListener("astro:page-load", render);
+  render();
+</script>

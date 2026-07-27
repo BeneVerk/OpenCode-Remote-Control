@@ -1,0 +1,79 @@
+---
+title: Deployment Topologies
+description: Cloud (Cloudflare) and self-hosted (deferred) deployment shapes.
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+## Cloud (current — Cloudflare)
+
+<Mermaid
+  code={`flowchart TB
+  subgraph Edge["Cloudflare edge"]
+    DNS["*.opencode.beneverk.com (wildcard)"]
+    Access["Access app (wildcard + apex)"]
+    Worker["Aggregator Worker<br/>apex + wildcard proxy"]
+    DO["SessionRelay DOs"]
+    D1[("D1")]
+    KV[("KV")]
+  end
+  Browser[Browser] -->|HTTPS| Access
+  Access --> Worker
+  Worker --> DO
+  Worker --> D1
+  Worker --> KV
+  DNS -.-> Worker
+  subgraph Machines["Your machines"]
+    M1["Machine A<br/>fleet-agent + opencode + cloudflared"]
+    M2["Machine B<br/>fleet-agent + opencode + cloudflared"]
+  end
+  Worker -->|transparent proxy over tunnel| M1
+  Worker -->|transparent proxy over tunnel| M2
+  M1 -.->|register + WSS + notify| Worker
+  M2 -.->|register + WSS| Worker`}
+/>
+
+Single domain (`opencode.beneverk.com`), one wildcard DNS + one wildcard Access
+app + one Worker. Per-machine subdomains (`<machine>.opencode.beneverk.com`)
+route to the same Worker and proxy to that machine's tunnel. Nothing is
+registered per machine — a new machine just works through the wildcard.
+
+## Self-hosted (deferred — P5)
+
+<Mermaid
+  code={`flowchart TB
+  subgraph Host["Your machine (host)"]
+    Server["Fleet aggregator<br/>(Deno single binary)"]
+    DB[("local SQLite")]
+    LocalOC["opencode (local)"]
+    LocalAgent["fleet-agent (local)"]
+    Server --> DB
+    LocalAgent --> Server
+    LocalAgent --> LocalOC
+  end
+  subgraph Remote["Remote machines"]
+    RAgent["fleet-agent"]
+    ROC["opencode + cloudflared"]
+    RAgent --> ROC
+    RAgent -.->|register + WSS over LAN/WAN| Server
+  end
+  Browser[Browser] -->|"tunnel (cloudflared from host) OR static IP"| Server
+  Server -->|"local-port proxy (no subpath rewrite needed)"| LocalOC
+  Server -->|"per-machine subdomain / tunnel"| ROC`}
+/>
+
+Same aggregator core (registry, notifications, dashboard, `ProxyMode`) on a Deno
+server, swapping the cloud bindings for adapter implementations:
+
+| Cloud | → | Self-hosted |
+| --- | --- | --- |
+| Cloudflare Worker | → | Deno server |
+| Durable Object (Hibernation WS) | → | Deno WebSocket server |
+| D1 | → | local SQLite |
+| KV | → | in-process cache |
+| Cloudflare Access | → | pluggable `AuthProvider` (default: HTTP basic-auth / session password set at server start) |
+| Cloudflare custom domain | → | cloudflared-from-host tunnel **or** static IP |
+
+The host's **own** opencode is local — the aggregator proxies it via local port
+(no subpath-rewrite needed). Remote machines register over LAN/WAN and are
+reached via their tunnels or local subdomains.

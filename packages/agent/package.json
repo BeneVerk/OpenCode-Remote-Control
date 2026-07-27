@@ -1,0 +1,7 @@
+{
+  "name": "@beneverk/opencode-remote-fleet-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Per-machine agent for Opencode Remote Fleet (PowerShell). Loads .env.opencode, starts opencode + cloudflared, registers with the aggregator, maintains the control WSS, and forwards opencode notifications.",
+  "files": ["*.ps1"]
+}
